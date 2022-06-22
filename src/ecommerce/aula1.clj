@@ -6,9 +6,9 @@
 
 
 
-(def conn (db/abre-conexao))
+(def conn (db/abre-conexao!))
 
-(db/cria-schema conn)
+(db/cria-schema! conn)
 
 (let [computador (model/novo-produto (model/uuid) "Computador Novo", "/computador-novo", 2500.10M)
       celular (model/novo-produto (model/uuid) "Celular Caro", "/celular", 888888.10M)
@@ -38,5 +38,5 @@
 
 
 
-;(db/apaga-banco)
+;(db/apaga-banco!)
 

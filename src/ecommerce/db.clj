@@ -4,11 +4,11 @@
 
 (def db-uri "datomic:dev://localhost:4334/ecommerce")
 
-(defn abre-conexao []
+(defn abre-conexao! []
   (d/create-database db-uri)
   (d/connect db-uri))
 
-(defn apaga-banco []
+(defn apaga-banco! []
   (d/delete-database db-uri))
 
 ; Produtos
@@ -16,22 +16,22 @@
 ; nome String 1 ==> Computador Novo
 ; slug String 1 ==> /computador_novo
 ; preco ponto flutuantes 1 ==> 3500.10
+; categoria_id integer ==> 3
 
 ; id_entidade atributo valor
 ; 15 :produto/nome Computador Novo     ID_TX     operacao
 ; 15 :produto/slug /computador_novo    ID_TX     operacao
 ; 15 :produto/preco 3500.10            ID_TX     operacao
+; 15 :produto/categoria 37
 ; 17 :produto/nome Telefone Caro       ID_TX     operacao
 ; 17 :produto/slug /telefone           ID_TX     operacao
 ; 17 :produto/preco 8888.88            ID_TX     operacao
 
-; 45 :produto/nome Telefone Caro       ID_TX     true
-; 45 :produto/slug /telefone           ID_TX     true
-; 45 :produto/preco 8888.88            ID_TX     true
+; 37 :categoria/nome Eletronicos
 
-; 45 :produto/preco 8888.88            ID_TX     false
-; 45 :produto/preco 0.1                ID_TX     true
-(def schema [{:db/ident       :produto/nome
+(def schema [
+             ;Produtos
+             {:db/ident       :produto/nome
               :db/valueType   :db.type/string
               :db/cardinality :db.cardinality/one
               :db/doc         "O nome de um produto"}
@@ -50,9 +50,21 @@
               :db/valueType   :db.type/uuid
               :db/cardinality :db.cardinality/one
               :db/unique      :db.unique/identity}
+             {:db/ident       :produto/categoria
+              :db/valueType   :db.type/ref
+              :db/cardinality :db.cardinality/one}
+
+             ;Categorias
+             {:db/ident       :categoria/nome
+              :db/valueType   :db.type/string
+              :db/cardinality :db.cardinality/one}
+             {:db/ident       :categoria/id
+              :db/valueType   :db.type/uuid
+              :db/cardinality :db.cardinality/one
+              :db/unique      :db.unique/identity}
              ])
 
-(defn cria-schema [conn]
+(defn cria-schema! [conn]
   (d/transact conn schema))
 
 (defn todos-os-produtos [db]
@@ -152,7 +164,32 @@
   (d/pull db '[*] [:produto/id produto-id]))
 
 
+(defn todas-as-categorias [db]
+  (d/q '[:find (pull ?categoria [*])
+         :where [?categoria :categoria/id]] db))
 
+(defn db-adds-de-atribuicao-de-categorias [produtos categoria]
+  (reduce (fn [db-adds produto] (conj db-adds [:db/add
+                                              [:produto/id (:produto/id produto)]
+                                              :produto/categoria
+                                              [:categoria/id (:categoria/id categoria)]]))
+
+          []
+          produtos))
+
+(defn atribui-categorias! [conn produtos categoria]
+  (let [a-transacionar (db-adds-de-atribuicao-de-categorias produtos categoria)]
+        ;(pprint "a-transacionar")
+        ;(pprint a-transacionar)
+        (d/transact conn a-transacionar)))
+
+(defn adiciona-produtos! [conn produtos]
+  (d/transact conn produtos))
+
+; como esses dois estao genericos poderiam ser um so
+; mas vamos manter dois pois se voce usa schema fica mais facil de trabalhar
+(defn adiciona-categorias! [conn categorias]
+  (d/transact conn categorias))
 
 
 
