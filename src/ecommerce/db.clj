@@ -29,6 +29,23 @@
 
 ; 37 :categoria/nome Eletronicos
 
+;[
+; :db/add :produto/nome "Camiseta"
+; :db/add :produto/slug "/camiseta"
+; :db/add :produto/preco 30M
+; ]
+;#datom[72 :db/ident :produto/nome]
+;#datom[73 :db/ident :produto/slug]
+;#datom[74 :db/ident :produto/preco]
+;
+;[?transacao 50 "2019-01-01"]
+;[_ _ _ ?transacao]
+;#datom[13194139534324 50 #inst "2022-06-23T14:36:42.572-00:00" 13194139534324 true]
+;#datom[17592186045429 72 "Camiseta" 13194139534324 true]
+;#datom[17592186045429 73 "/camiseta" 13194139534324 true]
+;#datom[17592186045429 74 30M 13194139534324 true]
+
+
 (def schema [
              ;Produtos
              {:db/ident       :produto/nome
@@ -62,6 +79,12 @@
               :db/valueType   :db.type/uuid
               :db/cardinality :db.cardinality/one
               :db/unique      :db.unique/identity}
+
+             ;Transacoes
+             {:db/ident       :tx-data/ip
+              :db/valueType   :db.type/string
+              :db/cardinality :db.cardinality/one}
+
              ])
 
 (defn cria-schema! [conn]
@@ -183,8 +206,12 @@
         ;(pprint a-transacionar)
         (d/transact conn a-transacionar)))
 
-(defn adiciona-produtos! [conn produtos]
-  (d/transact conn produtos))
+(defn adiciona-produtos!
+  ([conn produtos]
+   (d/transact conn produtos))
+  ([conn produtos ip]
+   (let [db-add-ip [:db/add "datomic.tx" :tx-data/ip ip]]
+     (d/transact conn (conj produtos db-add-ip)))))
 
 ; como esses dois estao genericos poderiam ser um so
 ; mas vamos manter dois pois se voce usa schema fica mais facil de trabalhar
@@ -251,8 +278,42 @@
        db))
 
 ; utilizando um pull
+;FAZER
 
+; variacao que faz duas queries soltas
+;(defn todos-os-produtos-mais-caros [db]
+;  (let [preco-mais-alto (ffirst(d/q '[:find (max ?preco)
+;                                      :where [_ :produto/preco ?preco]]
+;                              db))]
+;    (d/q '[:find  (pull ?produto [*])
+;           :in $ ?preco
+;           :where [?produto :produto/preco ?preco]]
+;         db preco-mais-alto)))
 
+;queremos fazer as duas queries de uma vez só
+; podemos criar nested queries
+(defn todos-os-produtos-mais-caros [db]
+  (d/q '[:find (pull ?produto [*])
+         :where [(q '[:find (max ?preco)
+                      :where [_ :produto/preco ?preco]]
+                    $) [[?preco]]]
+         [?produto :produto/preco ?preco]]
+       db))
+
+(defn todos-os-produtos-mais-baratos [db]
+  (d/q '[:find (pull ?produto [*])
+         :where [(q '[:find (min ?preco)
+                      :where [_ :produto/preco ?preco]]
+                    $) [[?preco]]]
+                [?produto :produto/preco ?preco]]
+       db))
+
+(defn todos-os-produtos-do-ip [db ip]
+  (d/q '[:find (pull ?produto [*])
+         :in $ ?ip-buscado
+         :where [?transacao :tx-data/ip ?ip-buscado]
+                [?produto :produto/id _ ?transacao]]
+       db ip))
 
 
 
