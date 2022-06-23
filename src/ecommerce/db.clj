@@ -193,5 +193,66 @@
 
 
 
+(defn todos-os-noomes-de-produtos-e-categorias [db]
+  (d/q '[:find ?nome-do-produto ?nome-da-categoria
+         :keys produto categoria
+         :where [?produto :produto/nome ?nome-do-produto]
+                [?produto :produto/categoria ?categoria]
+                [?categoria :categoria/nome ?nome-da-categoria]]
+       db))
+
+; traz :produto/nome + :produto/slug + todas as propriedades da categoria do produto
+;(defn todos-os-produtos-da-categoria [db nome-da-categoria]
+;  (d/q '[:find (pull ?produto [:produto/nome :produto/slug {:produto/categoria [*]}])
+;         :in $ ?nome
+;         :where [?categoria :categoria/nome ?nome]
+;         [?produto :produto/categoria ?categoria]]
+;       db nome-da-categoria))
+
+; exemplo com forward navigation
+;?produto :produto/categoria >>>>>>>
+;(defn todos-os-produtos-da-categoria [db nome-da-categoria]
+;  (d/q '[:find (pull ?produto [:produto/nome :produto/slug {:produto/categoria [:categoria/nome]}])
+;         :in $ ?nome
+;         :where [?categoria :categoria/nome ?nome]
+;                [?produto :produto/categoria ?categoria]]
+;       db nome-da-categoria))
+
+; exemplo com backward navigation
+; >>>>>>> :produto/_categoria ?categoria
+(defn todos-os-produtos-da-categoria [db nome-da-categoria]
+  (d/q '[:find (pull ?categoria [:categoria/nome {:produto/_categoria [:produto/nome :produto/slug]}])
+         :in $ ?nome
+         :where [?categoria :categoria/nome ?nome]]
+       db nome-da-categoria))
+
+;#{2500.10M, 888888.10M, 0.1M, 30M, 15M}
+(defn resumo-dos-produtos [db]
+  (d/q '[:find (min ?preco) (max ?preco) (count ?preco)
+         :where [?produto :produto/preco ?preco]]
+       db))
+
+;#{[1234561 2500.10M], [888888.10M], [135489 0.1M], [984564 30M], [4533245 15M], [45643213 30M]}
+(defn resumo-dos-produtos [db]
+  (d/q '[:find (min ?preco) (max ?preco) (count ?preco) (sum ?preco)
+         :keys minimo maximo quantidade preco-total
+         :with ?produto  ;considere produto na tupla
+         :where [?produto :produto/preco ?preco]
+         ]
+       db))
+
+(defn resumo-dos-produtos-por-categoria [db]
+  (d/q '[:find ?nome (min ?preco) (max ?preco) (count ?preco) (sum ?preco)
+         :keys categoria minimo maximo quantidade preco-total
+         :with ?produto  ;considere produto na tupla
+         :where [?produto :produto/preco ?preco]
+                [?produto :produto/categoria ?categoria]
+                [?categoria :categoria/nome ?nome]]
+       db))
+
+; utilizando um pull
+
+
+
 
 
